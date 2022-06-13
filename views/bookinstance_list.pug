@@ -13,7 +13,7 @@ block content
         else 
           span.text-warning #{instance.status}
         if instance.status != 'Available'
-          span (Due: #{instance.due_back_formatted})
+          span  (Due: #{instance.due_back_formatted})
 
     else
       li There are no book copies in this library. 
