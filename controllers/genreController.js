@@ -2,7 +2,7 @@ const async = require('async');
 const { body, validationResult } = require('express-validator');
 
 const Genre = require('../models/genre');
-const Books = require('../models/book');
+const Book = require('../models/book');
 
 // Display list of all Genre.
 exports.genre_list = function (req, res, next) {
@@ -25,7 +25,7 @@ exports.genre_detail = function (req, res, next) {
         Genre.findById(req.params.id).exec(callback);
       },
       genre_books: function (callback) {
-        Books.find({ genre: req.params.id }).exec(callback);
+        Book.find({ genre: req.params.id }).exec(callback);
       },
     },
     function (err, results) {
@@ -85,13 +85,49 @@ exports.genre_create_post = [
 ];
 
 // Display Genre delete form on GET.
-exports.genre_delete_get = function (req, res) {
-  res.send('NOT IMPLEMENTED: Genre delete GET');
+exports.genre_delete_get = function (req, res, next) {
+  async.parallel(
+    {
+      genre: callback => Genre.findById(req.params.id).exec(callback),
+      genre_books: callback =>
+        Book.find({ genre: req.params.id }).exec(callback),
+    },
+    (err, { genre, genre_books }) => {
+      if (err) return next(err);
+
+      if (!genre) res.redirect('/catalog/genres');
+
+      res.render('genre_delete', { title: 'Delete Genre', genre, genre_books });
+    }
+  );
 };
 
 // Handle Genre delete on POST.
-exports.genre_delete_post = function (req, res) {
-  res.send('NOT IMPLEMENTED: Genre delete POST');
+exports.genre_delete_post = function (req, res, next) {
+  async.parallel(
+    {
+      genre: callback => Genre.findById(req.body.genreid).exec(callback),
+      genre_books: callback =>
+        Book.find({ genre: req.body.genreid }).exec(callback),
+    },
+    (err, { genre, genre_books }) => {
+      if (err) return next(err);
+
+      if (genre_books.length > 0) {
+        res.render('genre_delete', {
+          title: 'Delete Genre',
+          genre,
+          genre_books,
+        });
+        return;
+      } else {
+        Genre.findByIdAndRemove(req.body.genreid, err => {
+          if (err) return next(err);
+          res.redirect('/catalog/genres');
+        });
+      }
+    }
+  );
 };
 
 // Display Genre update form on GET.
