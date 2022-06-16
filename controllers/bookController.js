@@ -205,11 +205,99 @@ exports.book_delete_post = function (req, res, next) {
 };
 
 // Display book update form on GET.
-exports.book_update_get = function (req, res) {
-  res.send('NOT IMPLEMENTED: Book update GET');
+exports.book_update_get = function (req, res, next) {
+  async.parallel(
+    {
+      book: callback => Book.findById(req.params.id).exec(callback),
+      authors: callback => Author.find(callback),
+      genres: callback => Genre.find(callback),
+    },
+    (err, { book, authors, genres }) => {
+      if (err) return next(err);
+
+      if (!book) {
+        let err = new Error('Book not found');
+        err.status = 404;
+        return next(err);
+      }
+
+      genres = genres.map(genre =>
+        book.genre.indexOf(genre._id) !== -1
+          ? Object.assign(genre, { checked: true })
+          : genre
+      );
+
+      res.render('book_form', { title: 'Update Book', authors, genres, book });
+    }
+  );
 };
 
 // Handle book update on POST.
-exports.book_update_post = function (req, res) {
-  res.send('NOT IMPLEMENTED: Book update POST');
-};
+exports.book_update_post = [
+  (req, res, next) => {
+    if (!(req.body.genre instanceof Array)) {
+      !typeof req.body.genre
+        ? (req.body.genre = [])
+        : (req.body.genre = new Array(req.body.genre));
+    }
+    next();
+  },
+  body('title', 'Title must not be empty.')
+    .trim()
+    .isLength({ min: 1 })
+    .escape(),
+  body('author', 'Author must not be empty.')
+    .trim()
+    .isLength({ min: 1 })
+    .escape(),
+  body('summary', 'Summary must not be empty.')
+    .trim()
+    .isLength({ min: 1 })
+    .escape(),
+  body('isbn', 'ISBN must not be empty').trim().isLength({ min: 1 }).escape(),
+  body('genre.*').escape(),
+  (req, res, next) => {
+    const errors = validationResult(req);
+
+    let book = new Book({
+      title: req.body.title,
+      author: req.body.author,
+      summary: req.body.summary,
+      isbn: req.body.isbn,
+      genre: typeof req.body.genre === 'undefined' ? [] : req.body.genre,
+      _id: req.params.id, //This is required, or a new ID will be assigned!
+    });
+
+    if (!errors.isEmpty()) {
+      async.parallel(
+        {
+          authors: callback => Author.find(callback),
+          genres: callback => Genre.find(callback),
+        },
+        (err, { authors, genres }) => {
+          if (err) return next(err);
+          genres = genres.map(genre =>
+            book.genre.indexOf(genre._id) !== -1
+              ? Object.assign(genre, { checked: true })
+              : genre
+          );
+          res.render('book_form', {
+            title: 'Update Book',
+            authors,
+            genres,
+            book,
+            errors: errors.array(),
+          });
+
+          return;
+        }
+      );
+    } else {
+      Book.findByIdAndUpdate(req.params.id, book, {}, (err, updatedBook) => {
+        if (err) return next(err);
+
+        res.redirect(updatedBook.url);
+      });
+    }
+  },
+];
