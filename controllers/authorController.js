@@ -167,7 +167,7 @@ exports.author_update_post = [
 
     if (!errors.isEmpty()) {
       res.render('author_form', {
-        title: 'Create Author',
+        title: 'Update Author',
         author: req.body,
         errors: errors.array(),
       });
