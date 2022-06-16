@@ -142,9 +142,11 @@ exports.author_delete_post = function (req, res, err) {
 exports.author_update_get = function (req, res, next) {
   Author.findById(req.params.id).exec((err, author) => {
     if (err) return next(err);
-
-    console.log(author.date_of_birth.toISOString().slice(0, 10));
-
+    if (!author) {
+      let err = new Error('Author not found');
+      err.status = 404;
+      return next(err);
+    }
     res.render('author_form', { title: 'Update Author', author });
   });
 };
